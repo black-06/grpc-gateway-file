@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package collision.servicepb;
+
+import "google/api/annotations.proto";
+import "google/api/httpbody.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/black-06/grpc-gateway-file/examples/proto";
+
+service Service {
+  // download file
+  rpc DownloadFile (DownloadFileRequest) returns (stream google.api.HttpBody) {
+    option (google.api.http) = {
+      get: "/api/file/download"
+    };
+  };
+
+  // upload file
+  rpc UploadFile (stream google.api.HttpBody) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/api/file/upload"
+      body: "*"
+    };
+  };
+}
+
+message DownloadFileRequest {}
