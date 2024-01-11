@@ -5,8 +5,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-// const defaultBufSize = 1 << 20 // 1 MB
-const defaultBufSize = 10 * 1024 // 1 MB
+const defaultBufSize = 1 << 20 // 1 MB
 
 func NewUploadServerReader(server UploadServer) *UploadServerReader {
 	return &UploadServerReader{server: server}

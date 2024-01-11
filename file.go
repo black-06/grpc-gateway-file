@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -135,7 +136,7 @@ func ServeContent(
 		sendContentDisposition string
 	)
 	if name != "" {
-		sendContentDisposition = fmt.Sprintf("attachment; filename=%s", name)
+		sendContentDisposition = fmt.Sprintf("attachment; filename=%s", url.PathEscape(name))
 	}
 
 	switch {
