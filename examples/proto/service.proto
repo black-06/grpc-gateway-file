@@ -24,6 +24,7 @@ service Service {
     };
   };
 
+  // upload multiple files
   rpc UploadMultipleFiles (stream google.api.HttpBody) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post: "/api/file/batch_upload"

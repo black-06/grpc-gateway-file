@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"mime/multipart"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -25,22 +26,19 @@ func (*Service) DownloadFile(_ *proto.DownloadFileRequest, server proto.Service_
 }
 
 func (*Service) UploadFile(server proto.Service_UploadFileServer) error {
-	header, err := gatewayfile.MultipartFormHeader(server, "file")
+	formData, err := gatewayfile.NewFormData(server)
 	if err != nil {
-		return status.Errorf(codes.InvalidArgument, "invalid file")
-	}
-
-	file, err := header.Open()
-	if err != nil {
-		return status.Errorf(codes.InvalidArgument, "invalid file")
-	}
-
-	// do something with upload file, for example, calc MD5
-	hash := md5.New()
-	if _, err = io.Copy(hash, file); err != nil {
 		return status.Errorf(codes.Internal, err.Error())
 	}
-	fmt.Println(hex.EncodeToString(hash.Sum(nil)))
+
+	fileHeader := formData.FirstFile("key1")
+	if fileHeader == nil {
+		return status.Errorf(codes.InvalidArgument, "missing file for key key1")
+	}
+
+	if err = calcFileHash(fileHeader); err != nil {
+		return status.Errorf(codes.InvalidArgument, err.Error())
+	}
 
 	// Of course, it can also be saved.
 	// gatewayfile.SaveMultipartFile(header, "/to/save/path")
@@ -50,40 +48,53 @@ func (*Service) UploadFile(server proto.Service_UploadFileServer) error {
 }
 
 func (*Service) UploadMultipleFiles(server proto.Service_UploadMultipleFilesServer) error {
-	form, err := gatewayfile.ParseMultipartForm(server)
+	formData, err := gatewayfile.NewFormData(server)
 	if err != nil {
-		return status.Errorf(codes.InvalidArgument, "invalid form")
-	}
-
-	firstHeader := gatewayfile.Pick(form.File, "first_file")
-	if firstHeader == nil {
-		return status.Errorf(codes.InvalidArgument, "missing first file")
-	}
-	firstFile, err := firstHeader.Open()
-	if err != nil {
-		return status.Errorf(codes.InvalidArgument, "invalid first file")
-	}
-
-	hash := md5.New()
-	if _, err = io.Copy(hash, firstFile); err != nil {
 		return status.Errorf(codes.Internal, err.Error())
 	}
-	fmt.Println(hex.EncodeToString(hash.Sum(nil)))
 
-	secondHeader := gatewayfile.Pick(form.File, "second_file")
-	if secondHeader == nil {
-		return status.Errorf(codes.InvalidArgument, "missing second file")
+	// one file for one key
+	firstFileHeader := formData.FirstFile("key1")
+	if firstFileHeader == nil {
+		return status.Errorf(codes.InvalidArgument, "missing file for key key1")
 	}
-	secondFile, err := secondHeader.Open()
-	if err != nil {
-		return status.Errorf(codes.InvalidArgument, "invalid second file")
+	if err = calcFileHash(firstFileHeader); err != nil {
+		return status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	hash.Reset()
-	if _, err = io.Copy(hash, secondFile); err != nil {
-		return status.Errorf(codes.Internal, err.Error())
+	// multiple files with the same key
+	secondFileHeaders := formData.Files("key2")
+	if secondFileHeaders == nil {
+		return status.Errorf(codes.InvalidArgument, "missing files for key key2")
 	}
-	fmt.Println(hex.EncodeToString(hash.Sum(nil)))
+	for _, secondHeader := range secondFileHeaders {
+		if err = calcFileHash(secondHeader); err != nil {
+			return status.Errorf(codes.InvalidArgument, err.Error())
+		}
+	}
+
+	// values
+	values := formData.Values("key1")
+	for _, value := range values {
+		_, _ = fmt.Printf("value for key1: %s\n", value)
+	}
 
 	return server.SendAndClose(&emptypb.Empty{})
+}
+
+func calcFileHash(fileHeader *multipart.FileHeader) error {
+	file, err := fileHeader.Open()
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	hash := md5.New()
+	if _, err = io.Copy(hash, file); err != nil {
+		return err
+	}
+
+	_, _ = fmt.Printf("hash for file %s: %s\n", fileHeader.Filename, hex.EncodeToString(hash.Sum(nil)))
+
+	return nil
 }

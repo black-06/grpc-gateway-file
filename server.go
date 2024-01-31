@@ -1,32 +1,35 @@
-package gateway_file
+package gatewayfile
 
 import (
 	"google.golang.org/genproto/googleapis/api/httpbody"
 	"google.golang.org/grpc"
 )
 
-const defaultBufSize = 1 << 20 // 1 MB
+const (
+	defaultBufSize = 1 << 20  // 1 MB
+	maxMemory      = 32 << 20 // 32 MB. parameter for ReadForm.
+)
 
-func NewUploadServerReader(server UploadServer) *UploadServerReader {
-	return &UploadServerReader{server: server}
+func newUploadServerReader(server uploadServer) *uploadServerReader {
+	return &uploadServerReader{server: server}
 }
 
-func NewDownloadServerWriter(server DownloadServer, contentType string) *DownloadServerWriter {
-	return &DownloadServerWriter{server: server, contentType: contentType, size: defaultBufSize}
+func newDownloadServerWriter(server downloadServer, contentType string) *downloadServerWriter {
+	return &downloadServerWriter{server: server, contentType: contentType, size: defaultBufSize}
 }
 
-// UploadServer is a client-stream server.
-type UploadServer interface {
+// uploadServer is a client-stream server.
+type uploadServer interface {
 	grpc.ServerStream
 	Recv() (*httpbody.HttpBody, error)
 }
 
-type UploadServerReader struct {
-	server UploadServer
+type uploadServerReader struct {
+	server uploadServer
 	buf    []byte
 }
 
-func (reader *UploadServerReader) Read(dst []byte) (int, error) {
+func (reader *uploadServerReader) Read(dst []byte) (int, error) {
 	src := reader.buf
 	if len(reader.buf) == 0 {
 		body, err := reader.server.Recv()
@@ -43,19 +46,19 @@ func (reader *UploadServerReader) Read(dst []byte) (int, error) {
 	return copy(dst, src), nil
 }
 
-// DownloadServer is a server-stream server.
-type DownloadServer interface {
+// downloadServer is a server-stream server.
+type downloadServer interface {
 	grpc.ServerStream
 	Send(*httpbody.HttpBody) error
 }
 
-type DownloadServerWriter struct {
+type downloadServerWriter struct {
 	contentType string
-	server      DownloadServer
+	server      downloadServer
 	size        int
 }
 
-func (writer *DownloadServerWriter) Write(data []byte) (int, error) {
+func (writer *downloadServerWriter) Write(data []byte) (int, error) {
 	n := 0
 	for len(data) > 0 {
 		wn := len(data)
