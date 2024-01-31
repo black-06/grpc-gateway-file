@@ -7,7 +7,7 @@ import (
 
 const (
 	defaultBufSize = 1 << 20  // 1 MB
-	maxMemory      = 100 << 20 // 100 MB. parameter for ReadForm.
+	maxMemory      = 32 << 20 // 32 MB. parameter for ReadForm.
 )
 
 func newUploadServerReader(server uploadServer) *uploadServerReader {
