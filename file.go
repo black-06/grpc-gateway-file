@@ -1,4 +1,4 @@
-package gateway_file
+package gatewayfile
 
 import (
 	"context"
@@ -8,29 +8,29 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
 	"time"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-	"github.com/pkg/errors"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/proto"
 )
 
 const (
-	HeaderCode             = "code"
-	HeaderAcceptRanges     = "accept-ranges"
-	HeaderTransferEncoding = "transfer-encoding"
+	headerCode             = "code"
+	headerAcceptRanges     = "accept-ranges"
+	headerTransferEncoding = "transfer-encoding"
 
-	HeaderContentRange       = "content-range"
-	HeaderContentLength      = "content-length"
-	HeaderContentDisposition = "content-disposition"
-	HeaderLastModified       = "last-modified"
+	headerContentRange       = "content-range"
+	headerContentLength      = "content-length"
+	headerContentDisposition = "content-disposition"
+	headerLastModified       = "last-modified"
 )
 
+// WithFileIncomingHeaderMatcher returns a ServeMuxOption representing a headerMatcher for incoming request to gateway.
+// This matcher will be called with each header in http.Request. If matcher returns true, that header will be passed to gRPC context. To transform the header before passing to gRPC context, matcher should return modified header.
 func WithFileIncomingHeaderMatcher() runtime.ServeMuxOption {
 	return runtime.WithIncomingHeaderMatcher(func(key string) (string, bool) {
 		key = textproto.CanonicalMIMEHeaderKey(key)
@@ -43,14 +43,15 @@ func WithFileIncomingHeaderMatcher() runtime.ServeMuxOption {
 	})
 }
 
+// WithFileForwardResponseOption - forwardResponseOption is an option that will be called on the relevant context.Context, http.ResponseWriter, and proto.Message before every forwarded response.
 func WithFileForwardResponseOption() runtime.ServeMuxOption {
 	headers := []string{
-		HeaderAcceptRanges,
-		HeaderTransferEncoding,
-		HeaderContentRange,
-		HeaderContentLength,
-		HeaderContentDisposition,
-		HeaderLastModified,
+		headerAcceptRanges,
+		headerTransferEncoding,
+		headerContentRange,
+		headerContentLength,
+		headerContentDisposition,
+		headerLastModified,
 	}
 	return runtime.WithForwardResponseOption(func(ctx context.Context, writer http.ResponseWriter, message proto.Message) error {
 		if message != nil {
@@ -59,14 +60,14 @@ func WithFileForwardResponseOption() runtime.ServeMuxOption {
 
 		md, ok := runtime.ServerMetadataFromContext(ctx)
 		if !ok {
-			return errors.New("metadata not found")
+			return fmt.Errorf("metadata not found")
 		}
 		for _, header := range headers {
-			if v := Pick(md.HeaderMD, header); v != "" {
+			if v := pick(md.HeaderMD, header); v != "" {
 				writer.Header().Set(header, v)
 			}
 		}
-		if codeStr := Pick(md.HeaderMD, HeaderCode); codeStr != "" {
+		if codeStr := pick(md.HeaderMD, headerCode); codeStr != "" {
 			code, err := strconv.ParseInt(codeStr, 10, 64)
 			if err != nil {
 				return err
@@ -78,7 +79,8 @@ func WithFileForwardResponseOption() runtime.ServeMuxOption {
 }
 
 // ServeFile comes from http.ServeFile, and made some adaptations for DownloadServer
-func ServeFile(server DownloadServer, contentType, path string) error {
+func ServeFile(server downloadServer, contentType, path string) error {
+	path = filepath.Clean(path)
 	file, err := os.Open(path)
 	if err != nil {
 		return err
@@ -90,14 +92,14 @@ func ServeFile(server DownloadServer, contentType, path string) error {
 		return err
 	}
 	if info.IsDir() {
-		return errors.Errorf("invalid path %s", path)
+		return fmt.Errorf("invalid path %s", path)
 	}
-	return ServeContent(server, file, contentType, info.Name(), info.ModTime(), info.Size())
+	return serveContent(server, file, contentType, info.Name(), info.ModTime(), info.Size())
 }
 
-// ServeContent comes from http.ServeContent, and made some adaptations for DownloadServer
-func ServeContent(
-	server DownloadServer, content io.ReadSeeker, contentType, name string, modTime time.Time, size int64,
+// serveContent comes from http.serveContent, and made some adaptations for DownloadServer
+func serveContent( //nolint:gocognit
+	server downloadServer, content io.ReadSeeker, contentType, name string, modTime time.Time, size int64,
 ) error {
 	if contentType == "" {
 		contentType = mime.TypeByExtension(filepath.Ext(name))
@@ -108,18 +110,18 @@ func ServeContent(
 			contentType = http.DetectContentType(buf[:n])
 			// rewind to output whole file
 			if _, err := content.Seek(0, io.SeekStart); err != nil {
-				return errors.Wrapf(err, "seeker can't seek")
+				return fmt.Errorf("seeker can't seek %w", err)
 			}
 		}
 	}
 
 	// handle Content-Range header.
 	md, _ := metadata.FromIncomingContext(server.Context())
-	ranges, err := ParseRange(Pick(md, "grpcgateway-range"), size)
+	ranges, err := parseRange(pick(md, "grpcgateway-range"), size)
 	if err != nil {
 		return err
 	}
-	if SumRangesSize(ranges) > size {
+	if sumRangesSize(ranges) > size {
 		// The total number of bytes in all the ranges
 		// is larger than the size of the file by
 		// itself, so this is probably an attack, or a
@@ -136,7 +138,7 @@ func ServeContent(
 		sendContentDisposition string
 	)
 	if name != "" {
-		sendContentDisposition = fmt.Sprintf("attachment; filename=%s", url.PathEscape(name))
+		sendContentDisposition = fmt.Sprintf("attachment; filename=%s", name)
 	}
 
 	switch {
@@ -160,18 +162,18 @@ func ServeContent(
 		sendCode = http.StatusPartialContent
 		sendContentRange = ra.ContentRange(size)
 	case len(ranges) > 1:
-		sendContentLength = RangesMIMESize(ranges, contentType, size)
+		sendContentLength = rangesMIMESize(ranges, contentType, size)
 		sendCode = http.StatusPartialContent
 
 		reader, writer := io.Pipe()
-		mWriter := multipart.NewWriter(NewDownloadServerWriter(server, contentType))
+		mWriter := multipart.NewWriter(newDownloadServerWriter(server, contentType))
 
 		sendContentType = "multipart/byteranges; boundary=" + mWriter.Boundary()
 		sendContent = reader
 		defer func() { _ = reader.Close() }() // cause writing goroutine to fail and exit if CopyN doesn't finish.
 
 		go func() {
-			var err error
+			var err error //nolint:govet
 			defer func() {
 				if err != nil {
 					_ = writer.CloseWithError(err)
@@ -196,17 +198,17 @@ func ServeContent(
 	}
 
 	err = server.SendHeader(metadata.New(map[string]string{
-		HeaderAcceptRanges:       "bytes",
-		HeaderTransferEncoding:   "identity",
-		HeaderCode:               strconv.FormatInt(int64(sendCode), 10),
-		HeaderContentLength:      strconv.FormatInt(sendContentLength, 10),
-		HeaderContentRange:       sendContentRange,
-		HeaderContentDisposition: sendContentDisposition,
-		HeaderLastModified:       modTime.UTC().Format(time.RFC1123),
+		headerAcceptRanges:       "bytes",
+		headerTransferEncoding:   "identity",
+		headerCode:               strconv.FormatInt(int64(sendCode), 10),
+		headerContentLength:      strconv.FormatInt(sendContentLength, 10),
+		headerContentRange:       sendContentRange,
+		headerContentDisposition: sendContentDisposition,
+		headerLastModified:       modTime.UTC().Format(time.RFC1123),
 	}))
 	if err != nil {
 		return err
 	}
-	_, err = io.CopyN(NewDownloadServerWriter(server, sendContentType), sendContent, sendContentLength)
+	_, err = io.CopyN(newDownloadServerWriter(server, sendContentType), sendContent, sendContentLength)
 	return err
 }

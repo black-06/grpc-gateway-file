@@ -1,4 +1,4 @@
-package gateway_file
+package gatewayfile
 
 import (
 	"errors"
@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func Pick[T any](m map[string][]T, key string) (t T) {
+func pick[T any](m map[string][]T, key string) (t T) {
 	if len(m) == 0 {
 		return t
 	}
@@ -20,24 +20,24 @@ func Pick[T any](m map[string][]T, key string) (t T) {
 	return values[0]
 }
 
-// HTTPRange copy from http.httpRange
-type HTTPRange struct {
+// httpRange copy from http.httpRange
+type httpRange struct {
 	Start, Length int64
 }
 
-func (r HTTPRange) ContentRange(size int64) string {
+func (r httpRange) ContentRange(size int64) string {
 	return fmt.Sprintf("bytes %d-%d/%d", r.Start, r.Start+r.Length-1, size)
 }
 
-func (r HTTPRange) MIMEHeader(contentType string, size int64) textproto.MIMEHeader {
+func (r httpRange) MIMEHeader(contentType string, size int64) textproto.MIMEHeader {
 	return textproto.MIMEHeader{
 		"Content-Range": {r.ContentRange(size)},
 		"Content-Type":  {contentType},
 	}
 }
 
-// ParseRange parses a Range header string as per RFC 7233.
-func ParseRange(s string, size int64) ([]HTTPRange, error) {
+// parseRange parses a Range header string as per RFC 7233.
+func parseRange(s string, size int64) ([]httpRange, error) { //nolint:gocognit
 	if s == "" {
 		return nil, nil // header not present
 	}
@@ -45,9 +45,12 @@ func ParseRange(s string, size int64) ([]HTTPRange, error) {
 	if !strings.HasPrefix(s, b) {
 		return nil, errors.New("invalid range")
 	}
-	var ranges []HTTPRange
-	var noOverlap bool
-	for _, ra := range strings.Split(s[len(b):], ",") {
+	var (
+		splitted  = strings.Split(s[len(b):], ",")
+		ranges    = make([]httpRange, 0, len(splitted))
+		noOverlap bool
+	)
+	for _, ra := range splitted {
 		ra = textproto.TrimString(ra)
 		if ra == "" {
 			continue
@@ -57,7 +60,7 @@ func ParseRange(s string, size int64) ([]HTTPRange, error) {
 			return nil, errors.New("invalid range")
 		}
 		start, end = textproto.TrimString(start), textproto.TrimString(end)
-		var r HTTPRange
+		var r httpRange
 		if start == "" {
 			// If no start is specified, end specifies the
 			// range start relative to the end of the file,
@@ -111,18 +114,18 @@ func ParseRange(s string, size int64) ([]HTTPRange, error) {
 	return ranges, nil
 }
 
-// CountingWriter counts how many bytes have been written to it.
-type CountingWriter int64
+// countingWriter counts how many bytes have been written to it.
+type countingWriter int64
 
-func (w *CountingWriter) Write(p []byte) (n int, err error) {
-	*w += CountingWriter(len(p))
+func (w *countingWriter) Write(p []byte) (n int, err error) {
+	*w += countingWriter(len(p))
 	return len(p), nil
 }
 
-// RangesMIMESize returns the number of bytes it takes to encode the
+// rangesMIMESize returns the number of bytes it takes to encode the
 // provided ranges as a multipart response.
-func RangesMIMESize(ranges []HTTPRange, contentType string, contentSize int64) (encSize int64) {
-	var w CountingWriter
+func rangesMIMESize(ranges []httpRange, contentType string, contentSize int64) (encSize int64) {
+	var w countingWriter
 	mw := multipart.NewWriter(&w)
 	for _, ra := range ranges {
 		_, _ = mw.CreatePart(ra.MIMEHeader(contentType, contentSize))
@@ -133,7 +136,7 @@ func RangesMIMESize(ranges []HTTPRange, contentType string, contentSize int64) (
 	return
 }
 
-func SumRangesSize(ranges []HTTPRange) (size int64) {
+func sumRangesSize(ranges []httpRange) (size int64) {
 	for _, ra := range ranges {
 		size += ra.Length
 	}

@@ -1,0 +1,7 @@
+/go.sum -diff
+
+**/*.pb.go -diff
+**/*.pb.gw.go -diff
+
+**/buf.gen.yaml -diff
+**/buf.lock -diff

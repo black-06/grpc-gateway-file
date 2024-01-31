@@ -1,26 +1,28 @@
-package gateway_file
+package gatewayfile
 
 import (
+	"fmt"
 	"io"
 	"mime"
 	"mime/multipart"
 	"net/http"
 	"os"
+	"path/filepath"
 
-	"github.com/pkg/errors"
 	"google.golang.org/grpc/metadata"
 )
 
+// SaveMultipartFile saves the provided multipart file to the given path.
 func SaveMultipartFile(header *multipart.FileHeader, path string) error {
 	file, err := header.Open()
 	if err != nil {
-		return errors.Wrapf(err, "open file failed")
+		return fmt.Errorf("open file failed %w", err)
 	}
 
 	if f, ok := file.(*os.File); ok {
 		// Windows can't rename files that are opened.
 		if err = f.Close(); err != nil {
-			return errors.Wrapf(err, "colse file failed")
+			return fmt.Errorf("close file failed %w", err)
 		}
 
 		// If renaming fails we try the normal copying method.
@@ -31,52 +33,78 @@ func SaveMultipartFile(header *multipart.FileHeader, path string) error {
 
 		// Reopen f for the code below.
 		if file, err = header.Open(); err != nil {
-			return errors.Wrapf(err, "open file failed")
+			return fmt.Errorf("open file failed %w", err)
 		}
 	}
 
 	defer func() { _ = file.Close() }()
 
+	// Sanitize the path variable to prevent potential file inclusion.
+	path = filepath.Clean(path)
+
 	output, err := os.Create(path)
 	if err != nil {
-		return errors.Wrapf(err, "create output file failed")
+		return fmt.Errorf("create output file failed %w", err)
 	}
 	defer func() { _ = output.Close() }()
 
 	_, err = io.Copy(output, file)
-	return errors.Wrapf(err, "copy file failed")
-}
-
-// MultipartFormHeader returns the first file for the provided form key.
-// rpc request params must be 'stream google.api.HttpBody'.
-// It only applies to a single file, use ParseMultipartForm to process multiple files.
-func MultipartFormHeader(server UploadServer, key string) (*multipart.FileHeader, error) {
-	form, err := ParseMultipartForm(server)
 	if err != nil {
-		return nil, errors.Wrapf(err, "parse multipart form failed")
+		return fmt.Errorf("copy file failed %w", err)
 	}
-	if headers := form.File[key]; len(headers) > 0 {
-		return headers[0], nil
-	}
-	return nil, http.ErrMissingFile
+
+	return nil
 }
 
-// ParseMultipartForm parses HttpBody stream as multipart/form-data.
-// It is similar to http.Request.ParseMultipartForm, but after one call to ParseMultipartForm,
-// subsequent calls raise error.
-func ParseMultipartForm(server UploadServer) (*multipart.Form, error) {
+// FilesData is a wrapper around multipart.Form.
+type FilesData struct {
+	form *multipart.Form
+}
+
+// NewFilesData returns a new FilesData.
+func NewFilesData(server uploadServer) (*FilesData, error) {
+	form, err := parseMultipartForm(server)
+	if err != nil {
+		return nil, fmt.Errorf("parse multipart form failed %w", err)
+	}
+	return &FilesData{form: form}, nil
+}
+
+// Get returns the files for the provided form key
+func (f *FilesData) Get(key string) []*multipart.FileHeader {
+	if headers := f.form.File[key]; len(headers) > 0 {
+		if len(headers) == 0 {
+			return nil
+		}
+
+		return headers
+	}
+	return nil
+}
+
+// First returns the first file for the provided form key
+func (f *FilesData) First(key string) *multipart.FileHeader {
+	headers := f.Get(key)
+	if headers == nil {
+		return nil
+	}
+
+	return headers[0]
+}
+
+func parseMultipartForm(server uploadServer) (*multipart.Form, error) {
 	md, _ := metadata.FromIncomingContext(server.Context())
 	boundary, err := parseBoundary(md)
 	if err != nil {
 		return nil, err
 	}
 
-	reader := multipart.NewReader(NewUploadServerReader(server), boundary)
-	return reader.ReadForm(32 << 20)
+	reader := multipart.NewReader(newUploadServerReader(server), boundary)
+	return reader.ReadForm(maxMemory)
 }
 
 func parseBoundary(md metadata.MD) (string, error) {
-	contentType := Pick(md, "grpcgateway-content-type")
+	contentType := pick(md, "grpcgateway-content-type")
 	if contentType == "" {
 		return "", http.ErrNotMultipart
 	}

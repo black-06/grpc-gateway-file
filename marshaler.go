@@ -1,16 +1,17 @@
-package gateway_file
+package gatewayfile
 
 import (
+	"errors"
 	"io"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-	"github.com/pkg/errors"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
+// WithHTTPBodyMarshaler returns a ServeMuxOption which associates inbound and outbound Marshalers to a MIME type in mux.
 func WithHTTPBodyMarshaler() runtime.ServeMuxOption {
-	return runtime.WithMarshalerOption("*", &HTTPBodyMarshaler{
+	return runtime.WithMarshalerOption("*", &httpBodyMarshaler{
 		HTTPBodyMarshaler: &runtime.HTTPBodyMarshaler{
 			Marshaler: &runtime.JSONPb{
 				MarshalOptions:   protojson.MarshalOptions{EmitUnpopulated: true},
@@ -20,14 +21,14 @@ func WithHTTPBodyMarshaler() runtime.ServeMuxOption {
 	})
 }
 
-// HTTPBodyMarshaler is the same as runtime.HTTPBodyMarshaler.
+// httpBodyMarshaler is the same as runtime.httpBodyMarshaler.
 // It adds HttpBodyDecoder for HttpBody stream and provide the Delimiter as empty.
-type HTTPBodyMarshaler struct {
+type httpBodyMarshaler struct {
 	*runtime.HTTPBodyMarshaler
 }
 
-func (m *HTTPBodyMarshaler) NewDecoder(body io.Reader) runtime.Decoder {
-	return &HttpBodyDecoder{
+func (m *httpBodyMarshaler) NewDecoder(body io.Reader) runtime.Decoder {
+	return &httpBodyDecoder{
 		Decoder: m.Marshaler.NewDecoder(body),
 		body:    body,
 		buf:     make([]byte, defaultBufSize),
@@ -35,9 +36,9 @@ func (m *HTTPBodyMarshaler) NewDecoder(body io.Reader) runtime.Decoder {
 	}
 }
 
-func (m *HTTPBodyMarshaler) Delimiter() []byte { return []byte{} }
+func (m *httpBodyMarshaler) Delimiter() []byte { return []byte{} }
 
-type HttpBodyDecoder struct {
+type httpBodyDecoder struct {
 	runtime.Decoder
 
 	body io.Reader
@@ -45,7 +46,7 @@ type HttpBodyDecoder struct {
 	eof  bool
 }
 
-func (decoder *HttpBodyDecoder) Decode(v any) error {
+func (decoder *httpBodyDecoder) Decode(v any) error {
 	body, ok := v.(*httpbody.HttpBody)
 	if !ok {
 		// it falls back to the json Decoder.
@@ -64,5 +65,5 @@ func (decoder *HttpBodyDecoder) Decode(v any) error {
 		decoder.eof = true
 		return nil
 	}
-	return errors.WithStack(err)
+	return err
 }
