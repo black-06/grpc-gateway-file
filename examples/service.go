@@ -26,17 +26,17 @@ func (*Service) DownloadFile(_ *proto.DownloadFileRequest, server proto.Service_
 }
 
 func (*Service) UploadFile(server proto.Service_UploadFileServer) error {
-	fileData, err := gatewayfile.NewFilesData(server)
+	formData, err := gatewayfile.NewFormData(server)
 	if err != nil {
 		return status.Errorf(codes.Internal, err.Error())
 	}
 
-	header := fileData.First("file")
-	if header == nil {
-		return status.Errorf(codes.InvalidArgument, "missing key file")
+	fileHeader := formData.FirstFile("key1")
+	if fileHeader == nil {
+		return status.Errorf(codes.InvalidArgument, "missing file for key key1")
 	}
 
-	if err = calcFileHash(header); err != nil {
+	if err = calcFileHash(fileHeader); err != nil {
 		return status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
@@ -48,36 +48,42 @@ func (*Service) UploadFile(server proto.Service_UploadFileServer) error {
 }
 
 func (*Service) UploadMultipleFiles(server proto.Service_UploadMultipleFilesServer) error {
-	fileData, err := gatewayfile.NewFilesData(server)
+	formData, err := gatewayfile.NewFormData(server)
 	if err != nil {
 		return status.Errorf(codes.Internal, err.Error())
 	}
 
 	// one file for one key
-	firstHeader := fileData.First("file1")
-	if firstHeader == nil {
-		return status.Errorf(codes.InvalidArgument, "missing key file1")
+	firstFileHeader := formData.FirstFile("key1")
+	if firstFileHeader == nil {
+		return status.Errorf(codes.InvalidArgument, "missing file for key key1")
 	}
-	if err = calcFileHash(firstHeader); err != nil {
+	if err = calcFileHash(firstFileHeader); err != nil {
 		return status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
 	// multiple files with the same key
-	secondHeaders := fileData.Get("file2")
-	if secondHeaders == nil {
-		return status.Errorf(codes.InvalidArgument, "missing key file2")
+	secondFileHeaders := formData.Files("key2")
+	if secondFileHeaders == nil {
+		return status.Errorf(codes.InvalidArgument, "missing files for key key2")
 	}
-	for _, secondHeader := range secondHeaders {
+	for _, secondHeader := range secondFileHeaders {
 		if err = calcFileHash(secondHeader); err != nil {
 			return status.Errorf(codes.InvalidArgument, err.Error())
 		}
 	}
 
+	// values
+	values := formData.Values("key1")
+	for _, value := range values {
+		_, _ = fmt.Printf("value for key1: %s\n", value)
+	}
+
 	return server.SendAndClose(&emptypb.Empty{})
 }
 
-func calcFileHash(header *multipart.FileHeader) error {
-	file, err := header.Open()
+func calcFileHash(fileHeader *multipart.FileHeader) error {
+	file, err := fileHeader.Open()
 	if err != nil {
 		return err
 	}
@@ -88,7 +94,7 @@ func calcFileHash(header *multipart.FileHeader) error {
 		return err
 	}
 
-	_, _ = fmt.Printf("hash for file %s: %s\n", header.Filename, hex.EncodeToString(hash.Sum(nil)))
+	_, _ = fmt.Printf("hash for file %s: %s\n", fileHeader.Filename, hex.EncodeToString(hash.Sum(nil)))
 
 	return nil
 }

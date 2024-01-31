@@ -56,40 +56,54 @@ func SaveMultipartFile(header *multipart.FileHeader, path string) error {
 	return nil
 }
 
-// FilesData is a wrapper around multipart.Form.
-type FilesData struct {
+// FormData is a wrapper around multipart.Form.
+type FormData struct {
 	form *multipart.Form
 }
 
-// NewFilesData returns a new FilesData.
-func NewFilesData(server uploadServer) (*FilesData, error) {
+// NewFormData returns a new FormData.
+func NewFormData(server uploadServer) (*FormData, error) {
 	form, err := parseMultipartForm(server)
 	if err != nil {
 		return nil, fmt.Errorf("parse multipart form failed %w", err)
 	}
-	return &FilesData{form: form}, nil
+	return &FormData{form: form}, nil
 }
 
-// Get returns the files for the provided form key
-func (f *FilesData) Get(key string) []*multipart.FileHeader {
+// Files returns the files for the provided form key
+func (f *FormData) Files(key string) []*multipart.FileHeader {
 	if headers := f.form.File[key]; len(headers) > 0 {
-		if len(headers) == 0 {
-			return nil
-		}
-
 		return headers
 	}
 	return nil
 }
 
-// First returns the first file for the provided form key
-func (f *FilesData) First(key string) *multipart.FileHeader {
-	headers := f.Get(key)
-	if headers == nil {
+// FirstFile returns the first file for the provided form key
+func (f *FormData) FirstFile(key string) *multipart.FileHeader {
+	headers := f.Files(key)
+	if len(headers) == 0 {
 		return nil
 	}
 
 	return headers[0]
+}
+
+// Values returns the values for the provided form key
+func (f *FormData) Values(key string) []string {
+	if values := f.form.Value[key]; len(values) > 0 {
+		return values
+	}
+	return nil
+}
+
+// FirstValue returns the first value for the provided form key
+func (f *FormData) FirstValue(key string) string {
+	values := f.Values(key)
+	if len(values) == 0 {
+		return ""
+	}
+
+	return values[0]
 }
 
 func parseMultipartForm(server uploadServer) (*multipart.Form, error) {

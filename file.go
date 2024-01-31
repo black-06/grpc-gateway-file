@@ -94,11 +94,11 @@ func ServeFile(server downloadServer, contentType, path string) error {
 	if info.IsDir() {
 		return fmt.Errorf("invalid path %s", path)
 	}
-	return serveContent(server, file, contentType, info.Name(), info.ModTime(), info.Size())
+	return ServeContent(server, file, contentType, info.Name(), info.ModTime(), info.Size())
 }
 
-// serveContent comes from http.serveContent, and made some adaptations for DownloadServer
-func serveContent( //nolint:gocognit
+// ServeContent comes from http.ServeContent, and made some adaptations for DownloadServer
+func ServeContent( //nolint:gocognit
 	server downloadServer, content io.ReadSeeker, contentType, name string, modTime time.Time, size int64,
 ) error {
 	if contentType == "" {
