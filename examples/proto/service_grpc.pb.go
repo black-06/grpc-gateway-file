@@ -28,6 +28,7 @@ type ServiceClient interface {
 	DownloadFile(ctx context.Context, in *DownloadFileRequest, opts ...grpc.CallOption) (Service_DownloadFileClient, error)
 	// upload file
 	UploadFile(ctx context.Context, opts ...grpc.CallOption) (Service_UploadFileClient, error)
+	UploadMultipleFiles(ctx context.Context, opts ...grpc.CallOption) (Service_UploadMultipleFilesClient, error)
 }
 
 type serviceClient struct {
@@ -104,6 +105,40 @@ func (x *serviceUploadFileClient) CloseAndRecv() (*emptypb.Empty, error) {
 	return m, nil
 }
 
+func (c *serviceClient) UploadMultipleFiles(ctx context.Context, opts ...grpc.CallOption) (Service_UploadMultipleFilesClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Service_ServiceDesc.Streams[2], "/collision.servicepb.Service/UploadMultipleFiles", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &serviceUploadMultipleFilesClient{stream}
+	return x, nil
+}
+
+type Service_UploadMultipleFilesClient interface {
+	Send(*httpbody.HttpBody) error
+	CloseAndRecv() (*emptypb.Empty, error)
+	grpc.ClientStream
+}
+
+type serviceUploadMultipleFilesClient struct {
+	grpc.ClientStream
+}
+
+func (x *serviceUploadMultipleFilesClient) Send(m *httpbody.HttpBody) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *serviceUploadMultipleFilesClient) CloseAndRecv() (*emptypb.Empty, error) {
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	m := new(emptypb.Empty)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // ServiceServer is the server API for Service service.
 // All implementations must embed UnimplementedServiceServer
 // for forward compatibility
@@ -112,6 +147,7 @@ type ServiceServer interface {
 	DownloadFile(*DownloadFileRequest, Service_DownloadFileServer) error
 	// upload file
 	UploadFile(Service_UploadFileServer) error
+	UploadMultipleFiles(Service_UploadMultipleFilesServer) error
 	mustEmbedUnimplementedServiceServer()
 }
 
@@ -124,6 +160,9 @@ func (UnimplementedServiceServer) DownloadFile(*DownloadFileRequest, Service_Dow
 }
 func (UnimplementedServiceServer) UploadFile(Service_UploadFileServer) error {
 	return status.Errorf(codes.Unimplemented, "method UploadFile not implemented")
+}
+func (UnimplementedServiceServer) UploadMultipleFiles(Service_UploadMultipleFilesServer) error {
+	return status.Errorf(codes.Unimplemented, "method UploadMultipleFiles not implemented")
 }
 func (UnimplementedServiceServer) mustEmbedUnimplementedServiceServer() {}
 
@@ -185,6 +224,32 @@ func (x *serviceUploadFileServer) Recv() (*httpbody.HttpBody, error) {
 	return m, nil
 }
 
+func _Service_UploadMultipleFiles_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ServiceServer).UploadMultipleFiles(&serviceUploadMultipleFilesServer{stream})
+}
+
+type Service_UploadMultipleFilesServer interface {
+	SendAndClose(*emptypb.Empty) error
+	Recv() (*httpbody.HttpBody, error)
+	grpc.ServerStream
+}
+
+type serviceUploadMultipleFilesServer struct {
+	grpc.ServerStream
+}
+
+func (x *serviceUploadMultipleFilesServer) SendAndClose(m *emptypb.Empty) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *serviceUploadMultipleFilesServer) Recv() (*httpbody.HttpBody, error) {
+	m := new(httpbody.HttpBody)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // Service_ServiceDesc is the grpc.ServiceDesc for Service service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -201,6 +266,11 @@ var Service_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "UploadFile",
 			Handler:       _Service_UploadFile_Handler,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "UploadMultipleFiles",
+			Handler:       _Service_UploadMultipleFiles_Handler,
 			ClientStreams: true,
 		},
 	},
