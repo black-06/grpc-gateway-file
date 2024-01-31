@@ -48,7 +48,8 @@ func SaveMultipartFile(header *multipart.FileHeader, path string) error {
 }
 
 // MultipartFormHeader returns the first file for the provided form key.
-// rpc request params must be 'stream google.api.HttpBody'
+// rpc request params must be 'stream google.api.HttpBody'.
+// It only applies to a single file, use ParseMultipartForm to process multiple files.
 func MultipartFormHeader(server UploadServer, key string) (*multipart.FileHeader, error) {
 	form, err := ParseMultipartForm(server)
 	if err != nil {
@@ -60,6 +61,9 @@ func MultipartFormHeader(server UploadServer, key string) (*multipart.FileHeader
 	return nil, http.ErrMissingFile
 }
 
+// ParseMultipartForm parses HttpBody stream as multipart/form-data.
+// It is similar to http.Request.ParseMultipartForm, but after one call to ParseMultipartForm,
+// subsequent calls raise error.
 func ParseMultipartForm(server UploadServer) (*multipart.Form, error) {
 	md, _ := metadata.FromIncomingContext(server.Context())
 	boundary, err := parseBoundary(md)
@@ -68,7 +72,7 @@ func ParseMultipartForm(server UploadServer) (*multipart.Form, error) {
 	}
 
 	reader := multipart.NewReader(NewUploadServerReader(server), boundary)
-	return reader.ReadForm(100 << 20)
+	return reader.ReadForm(32 << 20)
 }
 
 func parseBoundary(md metadata.MD) (string, error) {
