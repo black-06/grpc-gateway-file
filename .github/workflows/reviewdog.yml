@@ -1,0 +1,18 @@
+# This workflow will post review comments
+# For more information see: https://github.com/marketplace/actions/run-golangci-lint-with-reviewdog
+
+name: reviewdog
+
+on: [ pull_request ]
+
+jobs:
+
+  golangci-lint:
+    name: golangci-lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: golangci-lint
+        uses: reviewdog/action-golangci-lint@v2.6.0
