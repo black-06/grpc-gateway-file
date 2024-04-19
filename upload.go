@@ -62,8 +62,9 @@ type FormData struct {
 }
 
 // NewFormData returns a new FormData.
-func NewFormData(server uploadServer) (*FormData, error) {
-	form, err := parseMultipartForm(server)
+// sizeLimit is the maximum size of the form data in bytes (0 = unlimited).
+func NewFormData(server uploadServer, sizeLimit int64) (*FormData, error) {
+	form, err := parseMultipartForm(server, sizeLimit)
 	if err != nil {
 		return nil, fmt.Errorf("parse multipart form failed %w", err)
 	}
@@ -106,14 +107,14 @@ func (f *FormData) FirstValue(key string) string {
 	return values[0]
 }
 
-func parseMultipartForm(server uploadServer) (*multipart.Form, error) {
+func parseMultipartForm(server uploadServer, sizeLimit int64) (*multipart.Form, error) {
 	md, _ := metadata.FromIncomingContext(server.Context())
 	boundary, err := parseBoundary(md)
 	if err != nil {
 		return nil, err
 	}
 
-	reader := multipart.NewReader(newUploadServerReader(server), boundary)
+	reader := multipart.NewReader(newUploadServerReader(server, sizeLimit), boundary)
 	return reader.ReadForm(maxMemory)
 }
 

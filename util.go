@@ -1,7 +1,6 @@
 package gatewayfile
 
 import (
-	"errors"
 	"fmt"
 	"mime/multipart"
 	"net/textproto"
@@ -43,7 +42,7 @@ func parseRange(s string, size int64) ([]httpRange, error) { //nolint:gocognit
 	}
 	const b = "bytes="
 	if !strings.HasPrefix(s, b) {
-		return nil, errors.New("invalid range")
+		return nil, ErrInvalidRange
 	}
 	var (
 		splitted  = strings.Split(s[len(b):], ",")
@@ -57,7 +56,7 @@ func parseRange(s string, size int64) ([]httpRange, error) { //nolint:gocognit
 		}
 		start, end, ok := strings.Cut(ra, "-")
 		if !ok {
-			return nil, errors.New("invalid range")
+			return nil, ErrInvalidRange
 		}
 		start, end = textproto.TrimString(start), textproto.TrimString(end)
 		var r httpRange
@@ -68,11 +67,11 @@ func parseRange(s string, size int64) ([]httpRange, error) { //nolint:gocognit
 			// which has to be a non-negative integer as per
 			// RFC 7233 Section 2.1 "Byte-Ranges".
 			if end == "" || end[0] == '-' {
-				return nil, errors.New("invalid range")
+				return nil, ErrInvalidRange
 			}
 			i, err := strconv.ParseInt(end, 10, 64)
 			if i < 0 || err != nil {
-				return nil, errors.New("invalid range")
+				return nil, ErrInvalidRange
 			}
 			if i > size {
 				i = size
@@ -82,7 +81,7 @@ func parseRange(s string, size int64) ([]httpRange, error) { //nolint:gocognit
 		} else {
 			i, err := strconv.ParseInt(start, 10, 64)
 			if err != nil || i < 0 {
-				return nil, errors.New("invalid range")
+				return nil, ErrInvalidRange
 			}
 			if i >= size {
 				// If the range begins after the size of the content,
@@ -97,7 +96,7 @@ func parseRange(s string, size int64) ([]httpRange, error) { //nolint:gocognit
 			} else {
 				i, err = strconv.ParseInt(end, 10, 64)
 				if err != nil || r.Start > i {
-					return nil, errors.New("invalid range")
+					return nil, ErrInvalidRange
 				}
 				if i >= size {
 					i = size - 1
@@ -109,7 +108,7 @@ func parseRange(s string, size int64) ([]httpRange, error) { //nolint:gocognit
 	}
 	if noOverlap && len(ranges) == 0 {
 		// The specified ranges did not overlap with the content.
-		return nil, errors.New("invalid range: failed to overlap")
+		return nil, fmt.Errorf("%w: failed to overlap", ErrInvalidRange)
 	}
 	return ranges, nil
 }
