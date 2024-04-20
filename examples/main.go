@@ -34,7 +34,7 @@ func main() {
 		gatewayfile.WithFileForwardResponseOption(),
 		gatewayfile.WithHTTPBodyMarshaler(),
 	)
-	conn, err := grpc.Dial(grpcAddr, grpc.WithBlock(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.DialContext(context.Background(), grpcAddr, grpc.WithBlock(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("dial grpc %s failed, err: %v", grpcAddr, err)
 	}

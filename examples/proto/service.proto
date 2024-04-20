@@ -23,11 +23,19 @@ service Service {
       body: "*"
     };
   };
-
+ 
   // upload multiple files
   rpc UploadMultipleFiles (stream google.api.HttpBody) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post: "/api/file/batch_upload"
+      body: "*"
+    };
+  };
+
+  // upload with stream to another service
+  rpc UploadToAnotherService (stream google.api.HttpBody) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/api/file/upload_to_another_service"
       body: "*"
     };
   };
