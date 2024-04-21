@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -25,9 +26,15 @@ func (*Service) DownloadFile(_ *proto.DownloadFileRequest, server proto.Service_
 	return gatewayfile.ServeFile(server, "application/octet-stream", "/the/file/path")
 }
 
+const maxDataSize = 1024 * 1024 * 100 // 100MB
+
 func (*Service) UploadFile(server proto.Service_UploadFileServer) error {
-	formData, err := gatewayfile.NewFormData(server)
+	formData, err := gatewayfile.NewFormData(server, maxDataSize)
 	if err != nil {
+		if errors.Is(err, gatewayfile.ErrSizeLimitExceeded) {
+			return status.Errorf(codes.InvalidArgument, "size limit exceeded")
+		}
+
 		return status.Errorf(codes.Internal, err.Error())
 	}
 
@@ -48,8 +55,12 @@ func (*Service) UploadFile(server proto.Service_UploadFileServer) error {
 }
 
 func (*Service) UploadMultipleFiles(server proto.Service_UploadMultipleFilesServer) error {
-	formData, err := gatewayfile.NewFormData(server)
+	formData, err := gatewayfile.NewFormData(server, maxDataSize)
 	if err != nil {
+		if errors.Is(err, gatewayfile.ErrSizeLimitExceeded) {
+			return status.Errorf(codes.InvalidArgument, "size limit exceeded")
+		}
+
 		return status.Errorf(codes.Internal, err.Error())
 	}
 

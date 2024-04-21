@@ -10,8 +10,11 @@ const (
 	maxMemory      = 32 << 20 // 32 MB. parameter for ReadForm.
 )
 
-func newUploadServerReader(server uploadServer) *uploadServerReader {
-	return &uploadServerReader{server: server}
+func newUploadServerReader(server uploadServer, sizeLimit int64) *uploadServerReader {
+	return &uploadServerReader{
+		server:    server,
+		sizeLimit: sizeLimit,
+	}
 }
 
 func newDownloadServerWriter(server downloadServer, contentType string) *downloadServerWriter {
@@ -27,6 +30,9 @@ type uploadServer interface {
 type uploadServerReader struct {
 	server uploadServer
 	buf    []byte
+
+	sizeCurrent int64 // current size of the data in bytes
+	sizeLimit   int64 // maximum size of the data in bytes (0 - unlimited)
 }
 
 func (reader *uploadServerReader) Read(dst []byte) (int, error) {
@@ -42,6 +48,14 @@ func (reader *uploadServerReader) Read(dst []byte) (int, error) {
 	if len(src) > len(dst) {
 		rn = len(dst)
 	}
+
+	if reader.sizeLimit > 0 {
+		if reader.sizeCurrent+int64(rn) > reader.sizeLimit {
+			return 0, ErrSizeLimitExceeded
+		}
+		reader.sizeCurrent += int64(rn)
+	}
+
 	reader.buf = src[rn:]
 	return copy(dst, src), nil
 }
