@@ -109,7 +109,7 @@ func (f *FormData) FirstValue(key string) string {
 
 func parseMultipartForm(server uploadServer, sizeLimit int64) (*multipart.Form, error) {
 	md, _ := metadata.FromIncomingContext(server.Context())
-	boundary, err := parseBoundary(md)
+	boundary, err := ParseBoundary(md)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func parseMultipartForm(server uploadServer, sizeLimit int64) (*multipart.Form, 
 	return reader.ReadForm(maxMemory)
 }
 
-func parseBoundary(md metadata.MD) (string, error) {
+func ParseBoundary(md metadata.MD) (string, error) {
 	contentType := pick(md, "grpcgateway-content-type")
 	if contentType == "" {
 		return "", http.ErrNotMultipart
