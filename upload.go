@@ -113,7 +113,7 @@ func (f *FormData) FirstValue(key string) string {
 // Useful for forwarding multipart requests to another server without saving them locally or in memory.
 func ProcessMultipartUpload(server uploadServer, f func(part *multipart.Part) error, sizeLimit int64) error {
 	md, _ := metadata.FromIncomingContext(server.Context())
-	boundary, err := parseBoundary(md)
+	boundary, err := ParseBoundary(md)
 	if err != nil {
 		return err
 	}
