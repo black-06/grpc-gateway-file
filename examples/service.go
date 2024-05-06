@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
@@ -108,4 +109,53 @@ func calcFileHash(fileHeader *multipart.FileHeader) error {
 	_, _ = fmt.Printf("hash for file %s: %s\n", fileHeader.Filename, hex.EncodeToString(hash.Sum(nil)))
 
 	return nil
+}
+
+func (*Service) UploadToAnotherService(server proto.Service_UploadToAnotherServiceServer) error {
+	// Imagine that the need to upload files to S3 without saving them locally or in memory.
+
+	s3client := &s3ClientMock{}
+
+	if err := gatewayfile.ProcessMultipartUpload(server, func(part *multipart.Part) error {
+		_, err := s3client.PutObject(server.Context(), &PutObjectInput{
+			Bucket: stringPtr("bucket-name"),
+			Key:    stringPtr(part.FileName()),
+			Body:   part, // part implements io.Reader interface
+		})
+
+		return err
+	}, maxDataSize); err != nil {
+		if errors.Is(err, gatewayfile.ErrSizeLimitExceeded) {
+			return status.Errorf(codes.InvalidArgument, "size limit exceeded")
+		}
+
+		return status.Errorf(codes.Internal, err.Error())
+	}
+
+	return server.SendAndClose(&emptypb.Empty{})
+}
+
+// mock S3 client
+type s3ClientMock struct{}
+
+func (*s3ClientMock) PutObject(_ context.Context, put *PutObjectInput) (*PutObjectOutput, error) {
+	data, err := io.ReadAll(put.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	_, _ = fmt.Printf("uploading file %s to bucket %s, size: %d\n", *put.Key, *put.Bucket, len(data))
+	return &PutObjectOutput{}, nil
+}
+
+type PutObjectInput struct {
+	Bucket *string
+	Key    *string
+	Body   io.Reader
+}
+
+type PutObjectOutput struct{}
+
+func stringPtr(s string) *string {
+	return &s
 }

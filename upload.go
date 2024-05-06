@@ -107,6 +107,35 @@ func (f *FormData) FirstValue(key string) string {
 	return values[0]
 }
 
+// ProcessMultipartUpload processes the provided multipart upload. The provided function is called for each part.
+// sizeLimit is the maximum size of the form data in bytes (0 = unlimited).
+// Useful for forwarding multipart requests to another server without saving them locally or in memory.
+func ProcessMultipartUpload(server uploadServer, f func(part *multipart.Part) error, sizeLimit int64) error {
+	md, _ := metadata.FromIncomingContext(server.Context())
+	boundary, err := parseBoundary(md)
+	if err != nil {
+		return err
+	}
+
+	reader := multipart.NewReader(newUploadServerReader(server, sizeLimit), boundary)
+	for {
+		p, err := reader.NextPart()
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+
+			return fmt.Errorf("read form failed %w", err)
+		}
+
+		if err = f(p); err != nil {
+			return fmt.Errorf("write part failed %w", err)
+		}
+
+		_ = p.Close()
+	}
+}
+
 func parseMultipartForm(server uploadServer, sizeLimit int64) (*multipart.Form, error) {
 	md, _ := metadata.FromIncomingContext(server.Context())
 	boundary, err := parseBoundary(md)
