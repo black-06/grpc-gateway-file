@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -138,7 +139,7 @@ func ProcessMultipartUpload(server uploadServer, f func(part *multipart.Part) er
 
 func parseMultipartForm(server uploadServer, sizeLimit int64) (*multipart.Form, error) {
 	md, _ := metadata.FromIncomingContext(server.Context())
-	boundary, err := parseBoundary(md)
+	boundary, err := ParseBoundary(md)
 	if err != nil {
 		return nil, err
 	}
@@ -147,8 +148,9 @@ func parseMultipartForm(server uploadServer, sizeLimit int64) (*multipart.Form, 
 	return reader.ReadForm(maxMemory)
 }
 
-func parseBoundary(md metadata.MD) (string, error) {
-	contentType := pick(md, "grpcgateway-content-type")
+// ParseBoundary parses the boundary parameter from the given metadata.
+func ParseBoundary(md metadata.MD) (string, error) {
+	contentType := pick(md, fmt.Sprintf("%s%s", runtime.MetadataPrefix, "content-type"))
 	if contentType == "" {
 		return "", http.ErrNotMultipart
 	}
