@@ -38,6 +38,8 @@ func (*Service) UploadFile(server proto.Service_UploadFileServer) error {
 
 		return status.Errorf(codes.Internal, err.Error())
 	}
+	// Clean up all temporary form data files after processing completes.
+	defer formData.RemoveAll()
 
 	fileHeader := formData.FirstFile("key1")
 	if fileHeader == nil {
@@ -64,6 +66,8 @@ func (*Service) UploadMultipleFiles(server proto.Service_UploadMultipleFilesServ
 
 		return status.Errorf(codes.Internal, err.Error())
 	}
+	// Clean up all temporary form data files after processing completes.
+	defer formData.RemoveAll()
 
 	// one file for one key
 	firstFileHeader := formData.FirstFile("key1")

@@ -108,6 +108,11 @@ func (f *FormData) FirstValue(key string) string {
 	return values[0]
 }
 
+// RemoveAll removes any temporary files associated with a from data
+func (f *FormData) RemoveAll() error {
+	return f.form.RemoveAll()
+}
+
 // ProcessMultipartUpload processes the provided multipart upload. The provided function is called for each part.
 // sizeLimit is the maximum size of the form data in bytes (0 = unlimited).
 // Useful for forwarding multipart requests to another server without saving them locally or in memory.
