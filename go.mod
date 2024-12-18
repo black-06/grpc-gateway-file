@@ -1,7 +1,6 @@
 module github.com/black-06/grpc-gateway-file
 
-go 1.21
-toolchain go1.22.5
+go 1.22
 
 require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.23.0
