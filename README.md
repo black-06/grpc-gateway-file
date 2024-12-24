@@ -68,8 +68,14 @@ A more complete example is [here](./examples)
 
 ## Known issues
 
-HTTPBodyMarshaler will change the Delimiter of all server-stream to empty. 
+1. HTTPBodyMarshaler will change the Delimiter of all server-stream to empty.
+   
+   Be careful if you have other server streams api.
+   
+   More context see https://github.com/grpc-ecosystem/grpc-gateway/issues/2557 
 
-Be careful if you have other server streams api. 
+2. When the download filename contains non-printable ascii characters (e.g. Chinese characters, etc.)
 
-More context see https://github.com/grpc-ecosystem/grpc-gateway/issues/2557 
+   an error will appear: header key "content-disposition" contains value with non-printable ASCII characters
+
+   see https://github.com/grpc/grpc-go/issues/7145, in the future we will solve it.
