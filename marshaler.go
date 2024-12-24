@@ -9,7 +9,8 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-// WithHTTPBodyMarshaler returns a ServeMuxOption which associates inbound and outbound Marshalers to a MIME type in mux.
+// WithDefaultHTTPBodyMarshaler returns a ServeMuxOption which associates inbound and outbound Marshalers to
+// a MIME type in mux.
 func WithDefaultHTTPBodyMarshaler() runtime.ServeMuxOption {
 	return WithHTTPBodyMarshaler("multipart/form-data")
 }
