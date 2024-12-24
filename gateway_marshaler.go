@@ -25,7 +25,7 @@ func WithHTTPBodyMarshaler(mime string) runtime.ServeMuxOption {
 	})
 }
 
-// httpBodyMarshaler is the same as runtime.httpBodyMarshaler.
+// httpBodyMarshaler is the same as runtime.HTTPBodyMarshaler.
 // It adds HttpBodyDecoder for HttpBody stream and provide the Delimiter as empty.
 type httpBodyMarshaler struct {
 	*runtime.HTTPBodyMarshaler

@@ -21,7 +21,7 @@ func newDownloadServerWriter(server downloadServer, contentType string) *downloa
 	return &downloadServerWriter{server: server, contentType: contentType, size: defaultBufSize}
 }
 
-// uploadServer is a client-stream server.
+// uploadServer is a client-stream server, see grpc.ClientStreamingServer
 type uploadServer interface {
 	grpc.ServerStream
 	Recv() (*httpbody.HttpBody, error)
@@ -60,7 +60,7 @@ func (reader *uploadServerReader) Read(dst []byte) (int, error) {
 	return copy(dst, src), nil
 }
 
-// downloadServer is a server-stream server.
+// downloadServer is a server-stream server, see grpc.ServerStreamingServer
 type downloadServer interface {
 	grpc.ServerStream
 	Send(*httpbody.HttpBody) error
