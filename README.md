@@ -17,42 +17,52 @@ It allows you to define upload and download api in the gRPC service proto file.
 
 0. Get it.
 
-```shell
-go get -u github.com/black-06/grpc-gateway-file
-```
+    ```shell
+    go get -u github.com/black-06/grpc-gateway-file
+    ```
 
 1. Defining gRPC proto file.  
    The result of download api, and the request of upload api, must be "stream google.api.HttpBody"
 
-```protobuf
-import "google/api/annotations.proto";
-import "google/api/httpbody.proto";
-
-service Service {
-  rpc DownloadFile (XXX) returns (stream google.api.HttpBody) {
-    option (google.api.http) = { get: "/api/file/download" };
-  };
-
-  rpc UploadFile (stream google.api.HttpBody) returns (XXX) {
-    option (google.api.http) = { post: "/api/file/upload", body: "*" };
-  };
-}
-```
+    ```protobuf
+    import "google/api/annotations.proto";
+    import "google/api/httpbody.proto";
+    
+    service Service {
+      rpc DownloadFile (XXX) returns (stream google.api.HttpBody) {
+        option (google.api.http) = { get: "/api/file/download" };
+      };
+    
+      rpc UploadFile (stream google.api.HttpBody) returns (XXX) {
+        option (google.api.http) = { post: "/api/file/upload", body: "*" };
+      };
+    }
+    ```
 
 2. Generate golang code as usual.
 3. Using gRPC-Gateway-file in gRPC-Gateway.
 
-```go
-import gatewayfile "github.com/black-06/grpc-gateway-file"
+    ```go
+    import gatewayfile "github.com/black-06/grpc-gateway-file"
+    
+    mux := runtime.NewServeMux(
+        gatewayfile.WithFileIncomingHeaderMatcher(),
+        gatewayfile.WithFileForwardResponseOption(),
+        gatewayfile.WithHTTPBodyMarshaler("*"),
+    )
+    ```
 
-mux := runtime.NewServeMux(
-	gatewayfile.WithFileIncomingHeaderMatcher(),
-	gatewayfile.WithFileForwardResponseOption(),
-	gatewayfile.WithHTTPBodyMarshaler(),
-)
-```
+4. Done, enjoy it.
 
-4. Done, enjoy it
+   Note: WithDefaultHTTPBodyMarshaler needs to match the request header "Content-Type: multipart/form-data", otherwise
+   an error will appear: "http: wrote more than the declared Content-Length". Because when Content-Type does not match,
+   the default Marshaler delimiter of gRPC-Gateway is "\n", resulting in Content-Length overflow.
+
+   Or you can use `WithHTTPBodyMarshaler("*")` to match all Content-Type.
+    
+    ```bash
+    wget --header="Content-Type: multipart/form-data" http://127.0.0.1:8080/api/file/download
+    ```
 
 A more complete example is [here](./examples)
 

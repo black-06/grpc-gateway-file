@@ -32,9 +32,9 @@ func main() {
 	mux := runtime.NewServeMux(
 		gatewayfile.WithFileIncomingHeaderMatcher(),
 		gatewayfile.WithFileForwardResponseOption(),
-		gatewayfile.WithHTTPBodyMarshaler(),
+		gatewayfile.WithHTTPBodyMarshaler("*"),
 	)
-	conn, err := grpc.DialContext(context.Background(), grpcAddr, grpc.WithBlock(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(grpcAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("dial grpc %s failed, err: %v", grpcAddr, err)
 	}
