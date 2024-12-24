@@ -18,7 +18,7 @@ import (
 )
 
 type Service struct {
-	*proto.UnimplementedServiceServer
+	proto.UnimplementedServiceServer
 }
 
 func (*Service) DownloadFile(_ *proto.DownloadFileRequest, server proto.Service_DownloadFileServer) error {

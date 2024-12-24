@@ -9,9 +9,14 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-// WithHTTPBodyMarshaler returns a ServeMuxOption which associates inbound and outbound Marshalers to a MIME type in mux.
-func WithHTTPBodyMarshaler() runtime.ServeMuxOption {
-	return runtime.WithMarshalerOption("multipart/form-data", &httpBodyMarshaler{
+// WithDefaultHTTPBodyMarshaler returns a ServeMuxOption which associates inbound and outbound Marshalers to
+// a MIME type in mux.
+func WithDefaultHTTPBodyMarshaler() runtime.ServeMuxOption {
+	return WithHTTPBodyMarshaler("multipart/form-data")
+}
+
+func WithHTTPBodyMarshaler(mime string) runtime.ServeMuxOption {
+	return runtime.WithMarshalerOption(mime, &httpBodyMarshaler{
 		HTTPBodyMarshaler: &runtime.HTTPBodyMarshaler{
 			Marshaler: &runtime.JSONPb{
 				MarshalOptions:   protojson.MarshalOptions{EmitUnpopulated: true},
@@ -21,7 +26,7 @@ func WithHTTPBodyMarshaler() runtime.ServeMuxOption {
 	})
 }
 
-// httpBodyMarshaler is the same as runtime.httpBodyMarshaler.
+// httpBodyMarshaler is the same as runtime.HTTPBodyMarshaler.
 // It adds HttpBodyDecoder for HttpBody stream and provide the Delimiter as empty.
 type httpBodyMarshaler struct {
 	*runtime.HTTPBodyMarshaler
